@@ -33,7 +33,7 @@ class TrellisConfigGenerator():
                 root['ports'][port]["interfaces"] = []
 
                 interface = OrderedDict()
-                interface["name"] = 'h%s' % (leaf_idx * self.nleaf + host_idx + 1)  # start from h1
+                interface["name"] = 'h%s' % (leaf_idx * self.nhost + host_idx + 1)  # start from h1
                 interface["ips"] = ['10.0.%d.254/24' % (leaf_idx + 2)]  # start from 10.0.2.254/24
                 interface["vlan-untagged"] = VLAN_UNTAGGED_BASE_ID * (leaf_idx + 1)  # 10, 20, 30 ...   
 
@@ -75,23 +75,8 @@ class TrellisConfigGenerator():
         return json.dumps(root, indent=4)
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description='Trellis config generator')
-    parser.add_argument('--nleaf', help='Number of leaf switches',
-                        type=int, default=2)
-    parser.add_argument('--nspine', help='Number of spine switches',
-                        type=int, default=2)
-    parser.add_argument('--nhost', help='Number of host for each leaf switch',
-                        type=int, default=2)
-    parser.add_argument('-o', '--output', help='Write output to file')
-    args = parser.parse_args()
-
-    nleaf = args.nleaf
-    nspine = args.nspine
-    nhost = args.nhost
-
-    generator = TrellisConfigGenerator(nleaf, nspine, nhost)
+def main(args):
+    generator = TrellisConfigGenerator(args.nleaf, args.nspine, args.nhost)
     json_data = generator.generate_json()
 
     if args.output is not None:
@@ -102,5 +87,17 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(
+        description='Trellis config generator')
+    parser.add_argument('--nleaf', help='Number of leaf switches',
+                        type=int, default=2)
+    parser.add_argument('--nspine', help='Number of spine switches',
+                        type=int, default=2)
+    parser.add_argument('--nhost', help='Number of hosts for each leaf switch',
+                        type=int, default=2)
+    parser.add_argument('-o', '--output', help='Write output to file')
+    args = parser.parse_args()
+
+    main(args)
+
 
