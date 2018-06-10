@@ -1,76 +1,75 @@
-#!/usr/bin/python
-
-import os
-import sys
-import argparse
-sys.path.append('..')
-
-if 'ONOS_ROOT' not in os.environ:
-    print "Environment var $ONOS_ROOT not set"
-    exit()
-else:
-    ONOS_ROOT = os.environ["ONOS_ROOT"]
-    sys.path.append(ONOS_ROOT + "/tools/dev/mininet")
+#!/usr/bin/env python
 
 from mininet.topo import Topo
 from mininet.net import Mininet
 from mininet.cli import CLI
+from mininet.node import RemoteController
 from mininet.log import setLogLevel
-from mininet.node import Host, RemoteController
 from routinglib import RoutedHost
 from bmv2 import ONOSBmv2Switch
+import argparse
 
 PIPECONF_ID = 'org.onosproject.pipelines.fabric'
 
-LEAF_START_INDEX = 204
-SPINE_START_INDEX = 226
-LEAF_GRPC_PORT_START = 55204
-SPINE_GRPC_PORT_START = 55226
+LEAF_BASE_ID = 204
+SPINE_BASE_ID = 226
+LEAF_BASE_GRPC_PORT = 55204
+SPINE_BASE_GRPC_PORT = 55226
 
-nleaf = 2
-nspine = 2
-nhost = 2
 
-class Trellis( Topo ):
+class Trellis(Topo):
     "Trellis basic topology"
 
-    def __init__( self, *args, **kwargs ):
-        Topo.__init__( self, *args, **kwargs )
+    def __init__(self, nleaf, nspine, nhost):
+        Topo.__init__(self)
 
         leafSwitches = []
         spineSwitches = []
 
-        for n in range(nleaf):
-            self.addSwitch("s" + str(LEAF_START_INDEX + n), 
-                cls=ONOSBmv2Switch, deviceId=str(LEAF_START_INDEX + n), grpcport=LEAF_GRPC_PORT_START + n, 
-                pipeconf=PIPECONF_ID, portcfg=True)
-            leafSwitches.append("s" + str(LEAF_START_INDEX + n))
+        # Add switches
+        for leaf_idx in range(nleaf):
+            leaf_id = LEAF_BASE_ID + leaf_idx
+            self.addSwitch('s%d' % (leaf_id),
+                           cls=ONOSBmv2Switch,
+                           grpcport=LEAF_BASE_GRPC_PORT + leaf_idx,
+                           pipeconf=PIPECONF_ID,
+                           portcfg=True)
+            leafSwitches.append('s%d' % (leaf_id))
 
-        for n in range(nspine):
-            self.addSwitch("s" + str(SPINE_START_INDEX + n), 
-                cls=ONOSBmv2Switch, deviceId=str(SPINE_START_INDEX + n), grpcport=SPINE_GRPC_PORT_START + n, 
-                pipeconf=PIPECONF_ID, portcfg=True)
-            spineSwitches.append("s" + str(SPINE_START_INDEX + n))
+        for spine_idx in range(nspine):
+            spine_id = SPINE_BASE_ID + spine_idx
+            self.addSwitch('s%d' % (spine_id),
+                           cls=ONOSBmv2Switch,
+                           grpcport=SPINE_BASE_GRPC_PORT + spine_idx,
+                           pipeconf=PIPECONF_ID,
+                           portcfg=True)
+            spineSwitches.append('s%d' % (spine_id))
 
+        # Add switch links
         for leaf in leafSwitches:
             for spine in spineSwitches:
                 self.addLink(leaf, spine)
 
-        # NOTE avoid using t=10.0.1.0/24 which is the default subnet of quaggas
+        # NOTE avoid using 10.0.1.0/24 which is the default subnet of quaggas
         # NOTE avoid using 00:00:00:00:00:xx which is the default mac of host behind upstream router
-        # IPv4 Hosts
-        for m in range(nleaf):
-            for n in range(nhost):
-                mac = "00:aa:00:00:00:" + str(m*nhost+n+1).zfill(2)
-                ip = "10.0." + str(m+2) + "." + str(n+1) + "/24"
-                gateway = "10.0." + str(m+2) + ".254"
-                host = self.addHost("h" + str(m*nhost+n+1), cls=RoutedHost, mac=mac, ips=[ip], gateway=gateway)
-                self.addLink("s" + str(LEAF_START_INDEX + m), host)
+        # Add IPv4 hosts
+        for leaf_idx in range(nleaf):
+            for host_idx in range(nhost):
+                leaf_id = LEAF_BASE_ID + leaf_idx
+                host_id = leaf_idx * nhost + host_idx + 1
+                mac = '00:aa:00:00:00:%s' % (str(host_id).zfill(2))
+                ip = '10.0.%d.%d/24' % (leaf_idx + 2, host_idx + 1)  # start from 10.0.2.1/24
+                gateway = '10.0.%d.254' % (leaf_idx + 2)  # start from 10.0.2.254
 
-topos = { 'trellis' : Trellis }
+                host = self.addHost('h%d' % (host_id), cls=RoutedHost, mac=mac, ips=[ip], gateway=gateway)
+                self.addLink('s%d' % (leaf_id), host)
+
+
+topos = {'trellis': Trellis}
+
 
 def main(args):
-    topo = Trellis()
+    topo = Trellis(args.nleaf, args.nspine, args.nhost)
     controller = RemoteController('c0', ip=args.onos_ip)
 
     net = Mininet(topo=topo, controller=None)
@@ -80,22 +79,21 @@ def main(args):
     CLI(net)
     net.stop()
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description='BMv2 mininet demo script (2 by 2 fabric)')
-    parser.add_argument('--onos-ip', help='ONOS-BMv2 controller IP address',
-                        type=str, action="store", required=True)
+        description='Mininet script for Trellis topology with BMv2 switch')
+    parser.add_argument('--onos-ip', help='ONOS controller IP address',
+                        type=str, required=True)
     parser.add_argument('--nleaf', help='Number of leaf switches',
-                        type=int, action="store", default=2, required=False)
+                        type=int, default=2)
     parser.add_argument('--nspine', help='Number of spine switches',
-                        type=int, action="store", default=2, required=False)
-    parser.add_argument('--nhost', help='Number of host for each leaf switch',
-                    type=int, action="store", default=2, required=False)
+                        type=int, default=2)
+    parser.add_argument('--nhost', help='Number of hosts for each leaf switch',
+                        type=int, default=2)
     args = parser.parse_args()
+
     setLogLevel('debug')
 
-    nleaf = args.nleaf
-    nspine = args.nspine
-    nhost = args.nhost
-
     main(args)
+
