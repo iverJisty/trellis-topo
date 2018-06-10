@@ -9,8 +9,6 @@ from routinglib import RoutedHost
 from bmv2 import ONOSBmv2Switch
 import argparse
 
-PIPECONF_ID = 'org.onosproject.pipelines.fabric'
-
 LEAF_BASE_ID = 204
 SPINE_BASE_ID = 226
 LEAF_BASE_GRPC_PORT = 55204
@@ -20,7 +18,7 @@ SPINE_BASE_GRPC_PORT = 55226
 class Trellis(Topo):
     "Trellis basic topology"
 
-    def __init__(self, nleaf, nspine, nhost):
+    def __init__(self, nleaf, nspine, nhost, pipeconf_id):
         Topo.__init__(self)
 
         leafSwitches = []
@@ -32,7 +30,7 @@ class Trellis(Topo):
             self.addSwitch('s%d' % (leaf_id),
                            cls=ONOSBmv2Switch,
                            grpcport=LEAF_BASE_GRPC_PORT + leaf_idx,
-                           pipeconf=PIPECONF_ID,
+                           pipeconf=pipeconf_id,
                            portcfg=True)
             leafSwitches.append('s%d' % (leaf_id))
 
@@ -41,7 +39,7 @@ class Trellis(Topo):
             self.addSwitch('s%d' % (spine_id),
                            cls=ONOSBmv2Switch,
                            grpcport=SPINE_BASE_GRPC_PORT + spine_idx,
-                           pipeconf=PIPECONF_ID,
+                           pipeconf=pipeconf_id,
                            portcfg=True)
             spineSwitches.append('s%d' % (spine_id))
 
@@ -69,7 +67,7 @@ topos = {'trellis': Trellis}
 
 
 def main(args):
-    topo = Trellis(args.nleaf, args.nspine, args.nhost)
+    topo = Trellis(args.nleaf, args.nspine, args.nhost, args.pipeconf)
     controller = RemoteController('c0', ip=args.onos_ip)
 
     net = Mininet(topo=topo, controller=None)
@@ -91,6 +89,8 @@ if __name__ == "__main__":
                         type=int, default=2)
     parser.add_argument('--nhost', help='Number of hosts for each leaf switch',
                         type=int, default=2)
+    parser.add_argument('--pipeconf', help='Pipeconf Id to be deployed on device',
+                        type=str, default='org.onosproject.pipelines.fabric')
     args = parser.parse_args()
 
     setLogLevel('debug')
