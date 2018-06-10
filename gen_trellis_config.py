@@ -4,7 +4,6 @@ import argparse
 import json
 from collections import OrderedDict
 
-DEVICE_ID_PREFIX = "device:bmv2"
 LEAF_BASE_ID = 204
 SPINE_BASE_ID = 226
 VLAN_UNTAGGED_BASE_ID = 10
@@ -12,10 +11,11 @@ VLAN_UNTAGGED_BASE_ID = 10
 
 class TrellisConfigGenerator():
 
-    def __init__(self, nleaf, nspine, nhost):
+    def __init__(self, nleaf, nspine, nhost, device_id_prefix):
         self.nleaf = nleaf
         self.nspine = nspine
         self.nhost = nhost
+	self.device_id_prefix = device_id_prefix
 
     def generate_json(self):
         root = OrderedDict()
@@ -28,7 +28,7 @@ class TrellisConfigGenerator():
                 # Assume leaf device use port 1..NUM_SPINE to connect spine
                 # Ports start from NUM_SPINE+1 are connect to host
                 leaf_id = LEAF_BASE_ID + leaf_idx
-                port = '%s:%s/%d' % (DEVICE_ID_PREFIX, leaf_id, self.nspine + 1 + host_idx)
+                port = '%s:%s/%d' % (self.device_id_prefix, leaf_id, self.nspine + 1 + host_idx)
                 root['ports'][port] = OrderedDict()
                 root['ports'][port]["interfaces"] = []
 
@@ -37,12 +37,12 @@ class TrellisConfigGenerator():
                 interface["ips"] = ['10.0.%d.254/24' % (leaf_idx + 2)]  # start from 10.0.2.254/24
                 interface["vlan-untagged"] = VLAN_UNTAGGED_BASE_ID * (leaf_idx + 1)  # 10, 20, 30 ...   
 
-                root['ports'][port]["interfaces"] .append(interface)
+                root['ports'][port]["interfaces"].append(interface)
 
         # Segment Routing config
         for leaf_idx in range(self.nleaf):
             leaf_id = LEAF_BASE_ID + leaf_idx
-            device_id = '%s:%s' % (DEVICE_ID_PREFIX, leaf_id)
+            device_id = '%s:%s' % (self.device_id_prefix, leaf_id)
             root['devices'][device_id] = OrderedDict()
             sr_config = root['devices'][device_id]['segmentrouting'] = OrderedDict()
 
@@ -58,7 +58,7 @@ class TrellisConfigGenerator():
 
         for spine_idx in range(self.nspine):
             spine_id = SPINE_BASE_ID + spine_idx
-            device_id = '%s:%s' % (DEVICE_ID_PREFIX, spine_id)
+            device_id = '%s:%s' % (self.device_id_prefix, spine_id)
             root['devices'][device_id] = OrderedDict()
             sr_config = root['devices'][device_id]['segmentrouting'] = OrderedDict()
 
@@ -76,7 +76,7 @@ class TrellisConfigGenerator():
 
 
 def main(args):
-    generator = TrellisConfigGenerator(args.nleaf, args.nspine, args.nhost)
+    generator = TrellisConfigGenerator(args.nleaf, args.nspine, args.nhost, args.device_prefix)
     json_data = generator.generate_json()
 
     if args.output is not None:
@@ -95,6 +95,8 @@ if __name__ == "__main__":
                         type=int, default=2)
     parser.add_argument('--nhost', help='Number of hosts for each leaf switch',
                         type=int, default=2)
+    parser.add_argument('--device-prefix', help='Prefix of device ID',
+                        type=str, default='device:bmv2')
     parser.add_argument('-o', '--output', help='Write output to file')
     args = parser.parse_args()
 
