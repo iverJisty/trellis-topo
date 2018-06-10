@@ -2,6 +2,7 @@
 
 from mininet.topo import Topo
 from mininet.net import Mininet
+from mininet.link import TCLink
 from mininet.cli import CLI
 from mininet.node import RemoteController
 from mininet.log import setLogLevel
@@ -18,7 +19,7 @@ SPINE_BASE_GRPC_PORT = 55226
 class Trellis(Topo):
     "Trellis basic topology"
 
-    def __init__(self, nleaf, nspine, nhost, pipeconf_id):
+    def __init__(self, nleaf, nspine, nhost, bandwidth, pipeconf_id):
         Topo.__init__(self)
 
         leafSwitches = []
@@ -46,7 +47,10 @@ class Trellis(Topo):
         # Add switch links
         for leaf in leafSwitches:
             for spine in spineSwitches:
-                self.addLink(leaf, spine)
+                if bandwidth is not None:
+                    self.addLink(leaf, spine, bw=bandwidth)
+                else:
+                    self.addLink(leaf, spine)
 
         # NOTE avoid using 10.0.1.0/24 which is the default subnet of quaggas
         # NOTE avoid using 00:00:00:00:00:xx which is the default mac of host behind upstream router
@@ -67,10 +71,10 @@ topos = {'trellis': Trellis}
 
 
 def main(args):
-    topo = Trellis(args.nleaf, args.nspine, args.nhost, args.pipeconf)
+    topo = Trellis(args.nleaf, args.nspine, args.nhost, args.bandwidth, args.pipeconf)
     controller = RemoteController('c0', ip=args.onos_ip)
 
-    net = Mininet(topo=topo, controller=None)
+    net = Mininet(topo=topo, link=TCLink, controller=None)
     net.addController(controller)
 
     net.start()
@@ -89,6 +93,8 @@ if __name__ == "__main__":
                         type=int, default=2)
     parser.add_argument('--nhost', help='Number of hosts for each leaf switch',
                         type=int, default=2)
+    parser.add_argument('--bandwidth', help='Link bandwidth capacity in Mbps',
+                        type=int)
     parser.add_argument('--pipeconf', help='Pipeconf Id to be deployed on device',
                         type=str, default='org.onosproject.pipelines.fabric')
     args = parser.parse_args()
