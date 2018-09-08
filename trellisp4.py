@@ -94,7 +94,7 @@ if __name__ == "__main__":
     parser.add_argument('--nhost', help='Number of hosts for each leaf switch',
                         type=int, default=2)
     parser.add_argument('--bandwidth', help='Link bandwidth capacity in Mbps',
-                        type=int)
+                        type=float)
     parser.add_argument('--pipeconf', help='Pipeconf Id to be deployed on device',
                         type=str, default='org.onosproject.pipelines.fabric')
     args = parser.parse_args()

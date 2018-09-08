@@ -58,7 +58,7 @@ if __name__ == "__main__":
     parser.add_argument('--nspine', help='Number of spine switches',
                         type=int, default=2)
     parser.add_argument('--bandwidth', help='Link bandwidth capacity in Mbps',
-                        type=int, required=True)
+                        type=float, required=True)
     parser.add_argument('--device-prefix', help='Prefix of device ID',
                         type=str, default='device:bmv2')
     parser.add_argument('-o', '--output', help='Write output to file')
