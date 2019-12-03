@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
+from mininet.log import setLogLevel, info, error
 from mininet.topo import Topo
 from mininet.net import Mininet
+from mininet.link import Intf
 from mininet.link import TCLink
 from mininet.cli import CLI
 from mininet.node import RemoteController
@@ -55,16 +57,16 @@ class Trellis(Topo):
         # NOTE avoid using 10.0.1.0/24 which is the default subnet of quaggas
         # NOTE avoid using 00:00:00:00:00:xx which is the default mac of host behind upstream router
         # Add IPv4 hosts
-        for leaf_idx in range(nleaf):
-            for host_idx in range(nhost):
-                leaf_id = LEAF_BASE_ID + leaf_idx
-                host_id = leaf_idx * nhost + host_idx + 1
-                mac = '00:aa:00:00:00:%s' % (str(host_id).zfill(2))
-                ip = '10.0.%d.%d/24' % (leaf_idx + 2, host_idx + 1)  # start from 10.0.2.1/24
-                gateway = '10.0.%d.254' % (leaf_idx + 2)  # start from 10.0.2.254
+        #for leaf_idx in range(nleaf):
+        #    for host_idx in range(nhost):
+        #        leaf_id = LEAF_BASE_ID + leaf_idx
+        #        host_id = leaf_idx * nhost + host_idx + 1
+        #        mac = '00:aa:00:00:00:%s' % (str(host_id).zfill(2))
+        #        ip = '10.0.%d.%d/24' % (leaf_idx + 2, host_idx + 1)  # start from 10.0.2.1/24
+        #        gateway = '10.0.%d.254' % (leaf_idx + 2)  # start from 10.0.2.254
 
-                host = self.addHost('h%d' % (host_id), cls=RoutedHost, mac=mac, ips=[ip], gateway=gateway)
-                self.addLink('s%d' % (leaf_id), host)
+        #        host = self.addHost('h%d' % (host_id), cls=RoutedHost, mac=mac, ips=[ip], gateway=gateway)
+        #        self.addLink('s%d' % (leaf_id), host)
 
 
 topos = {'trellis': Trellis}
@@ -76,6 +78,12 @@ def main(args):
 
     net = Mininet(topo=topo, link=TCLink, controller=None)
     net.addController(controller)
+
+    # Add exists veth pair to leaf switch
+    veth = [ "s204-eth3", "s204-eth4", "s205-eth3" ]
+    leaf = [ net.switches[0], net.switches[0], net.switches[1] ]
+    for intfName, switch in zip(veth, leaf):
+        _intf = Intf( intfName, node=switch )
 
     net.start()
     CLI(net)
